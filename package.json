@@ -1,0 +1,33 @@
+{
+  "name": "PreviewRoll",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "check-types": "pnpm -r check-types",
+    "dev:web": "pnpm --filter web dev",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "check": "oxlint && oxfmt --write"
+  },
+  "dependencies": {
+    "@PreviewRoll/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@PreviewRoll/config": "workspace:*",
+    "@types/node": "^22.13.14",
+    "oxfmt": "^0.53.0",
+    "oxlint": "^1.68.0",
+    "typescript": "catalog:"
+  },
+  "packageManager": "pnpm@11.7.0"
+}
