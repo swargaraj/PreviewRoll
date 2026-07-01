@@ -1,5 +1,5 @@
 {
-  "name": "@PreviewRoll/env",
+  "name": "@previewroll/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@PreviewRoll/config": "workspace:*",
+    "@previewroll/config": "workspace:*",
     "@types/node": "^22.13.14",
     "typescript": "catalog:"
   }

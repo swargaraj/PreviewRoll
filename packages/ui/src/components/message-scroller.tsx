@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@PreviewRoll/ui/components/button";
-import { cn } from "@PreviewRoll/ui/lib/utils";
+import { Button } from "@previewroll/ui/components/button";
+import { cn } from "@previewroll/ui/lib/utils";
 import {
   MessageScroller as MessageScrollerPrimitive,
   useMessageScroller,

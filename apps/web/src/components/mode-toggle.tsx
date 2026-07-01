@@ -1,10 +1,10 @@
-import { Button } from "@PreviewRoll/ui/components/button";
+import { Button } from "@previewroll/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@PreviewRoll/ui/components/dropdown-menu";
+} from "@previewroll/ui/components/dropdown-menu";
 import { Moon, Sun } from "lucide-react";
 
 import { useTheme } from "@/components/theme-provider";

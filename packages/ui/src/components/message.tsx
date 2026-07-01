@@ -1,4 +1,4 @@
-import { cn } from "@PreviewRoll/ui/lib/utils";
+import { cn } from "@previewroll/ui/lib/utils";
 import * as React from "react";
 
 function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {

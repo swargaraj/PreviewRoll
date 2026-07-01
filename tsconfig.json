@@ -1,3 +1,3 @@
 {
-  "extends": "@PreviewRoll/config/tsconfig.base.json"
+  "extends": "@previewroll/config/tsconfig.base.json"
 }

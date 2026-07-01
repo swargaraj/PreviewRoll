@@ -1,36 +1,19 @@
+import { Link } from "react-router";
+
+import { Button } from "@previewroll/ui/components/button";
+
 import type { Route } from "./+types/_index";
 
-const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
-
 export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "PreviewRoll" },
-    { name: "description", content: "PreviewRoll is a web application" },
-  ];
+  return [{ title: "PreviewRoll" }, { name: "description", content: "PreviewRoll" }];
 }
 
 export default function Home() {
   return (
     <div className="container mx-auto max-w-3xl px-4 py-2">
-      <pre className="overflow-x-auto font-mono text-sm">{TITLE_TEXT}</pre>
-      <div className="grid gap-6">
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 font-medium">API Status</h2>
-        </section>
+      <h1 className="text-2xl font-bold">PreviewRoll</h1>
+      <div className="mt-4">
+        <Button render={<Link to="/login" />}>Sign in</Button>
       </div>
     </div>
   );

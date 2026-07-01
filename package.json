@@ -1,5 +1,5 @@
 {
-  "name": "PreviewRoll",
+  "name": "previewroll",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -18,12 +18,12 @@
     "check": "oxlint && oxfmt --write"
   },
   "dependencies": {
-    "@PreviewRoll/env": "workspace:*",
+    "@previewroll/env": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@PreviewRoll/config": "workspace:*",
+    "@previewroll/config": "workspace:*",
     "@types/node": "^22.13.14",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",
