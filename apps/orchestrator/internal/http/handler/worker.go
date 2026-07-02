@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database"
+	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database/sqlc"
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/worker"
 )
 
@@ -55,7 +56,6 @@ func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate input
 	if req.Name == "" || req.Address == "" {
 		http.Error(w, "Name and address are required", http.StatusBadRequest)
 		return
@@ -65,24 +65,24 @@ func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 		req.Capacity = 5
 	}
 
-	// Create worker
 	wrk := worker.NewWorker(req.Name, req.Address, req.Capacity, req.Capabilities)
 
-	// Insert into database
-	err := h.db.QueryRow(`
-		INSERT INTO workers (name, address, state, capacity, current_load, capabilities)
-		VALUES (?, ?, ?, ?, ?, ?)
-		RETURNING id
-	`, wrk.Name, wrk.Address, wrk.State, wrk.Capacity, wrk.CurrentLoad, "{}").Scan(&wrk.ID)
+	created, err := h.db.Q().CreateWorker(r.Context(), sqlc.CreateWorkerParams{
+		Name:         wrk.Name,
+		Address:      wrk.Address,
+		State:        string(wrk.State),
+		Capacity:     int64(wrk.Capacity),
+		CurrentLoad:  int64(wrk.CurrentLoad),
+		Capabilities: "{}",
+	})
 	if err != nil {
 		http.Error(w, "Failed to register worker", http.StatusInternalServerError)
 		return
 	}
 
-	// Register with pool
+	wrk.ID = created.ID
 	h.pool.Register(wrk)
 
-	// Return response
 	resp := worker.RegisterResponse{
 		WorkerID: wrk.ID,
 		Status:   "success",
@@ -102,23 +102,20 @@ func (h *WorkerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update worker in database
-	_, err := h.db.Exec(`
-		UPDATE workers SET current_load = ?, last_seen_at = datetime('now'), updated_at = datetime('now')
-		WHERE id = ?
-	`, req.CurrentLoad, req.WorkerID)
+	err := h.db.Q().UpdateWorkerLoad(r.Context(), sqlc.UpdateWorkerLoadParams{
+		CurrentLoad: int64(req.CurrentLoad),
+		ID:          req.WorkerID,
+	})
 	if err != nil {
 		http.Error(w, "Failed to update worker", http.StatusInternalServerError)
 		return
 	}
 
-	// Update pool
 	h.pool.UpdateLoad(req.WorkerID, req.CurrentLoad)
 
-	// Return response
 	resp := worker.HeartbeatResponse{
 		Status:    "ok",
-		Timestamp: 0, // TODO: Use actual timestamp
+		Timestamp: 0,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -133,17 +130,15 @@ func (h *WorkerHandler) Deregister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update worker state in database
-	_, err := h.db.Exec(`
-		UPDATE workers SET state = 'offline', updated_at = datetime('now')
-		WHERE id = ?
-	`, req.WorkerID)
+	err := h.db.Q().UpdateWorkerState(r.Context(), sqlc.UpdateWorkerStateParams{
+		State: "offline",
+		ID:    req.WorkerID,
+	})
 	if err != nil {
 		http.Error(w, "Failed to deregister worker", http.StatusInternalServerError)
 		return
 	}
 
-	// Remove from pool
 	h.pool.Deregister(req.WorkerID)
 
 	w.Header().Set("Content-Type", "application/json")

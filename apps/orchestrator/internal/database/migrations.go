@@ -48,6 +48,7 @@ func RunMigrations(db *DB) error {
 	}
 
 	// Run pending migrations
+	applied := false
 	for _, m := range migrations {
 		if m.Version <= currentVersion {
 			continue
@@ -60,6 +61,13 @@ func RunMigrations(db *DB) error {
 		db.logger.Info("applying migration", "version", m.Version, "description", m.Description)
 		if err := applyMigration(db, m); err != nil {
 			return fmt.Errorf("failed to apply migration %d: %w", m.Version, err)
+		}
+		applied = true
+	}
+
+	if applied {
+		if err := db.SeedAdminIfNeeded(); err != nil {
+			return fmt.Errorf("failed to seed admin user: %w", err)
 		}
 	}
 

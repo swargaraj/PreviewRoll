@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database/sqlc"
 )
 
 // DB wraps sql.DB with additional functionality
@@ -51,4 +53,9 @@ func New(dbPath string) (*DB, error) {
 // Close closes the database connection
 func (db *DB) Close() error {
 	return db.DB.Close()
+}
+
+// Q returns a sqlc queries instance for type-safe database access
+func (db *DB) Q() *sqlc.Queries {
+	return sqlc.New(db.DB)
 }

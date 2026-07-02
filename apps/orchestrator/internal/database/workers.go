@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -9,33 +10,32 @@ import (
 
 // LoadWorkers loads all workers from the database into the pool
 func (db *DB) LoadWorkers() ([]*worker.Worker, error) {
-	rows, err := db.Query(`
-		SELECT id, name, address, state, capacity, current_load, capabilities, last_seen_at, created_at, updated_at
-		FROM workers
-		ORDER BY id
-	`)
+	rows, err := db.Q().ListAllWorkers(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query workers: %w", err)
 	}
-	defer rows.Close()
 
-	var workers []*worker.Worker
-	for rows.Next() {
-		w := &worker.Worker{}
-		var capsJSON string
-		err := rows.Scan(&w.ID, &w.Name, &w.Address, &w.State, &w.Capacity, &w.CurrentLoad, &capsJSON, &w.LastSeenAt, &w.CreatedAt, &w.UpdatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan worker: %w", err)
+	workers := make([]*worker.Worker, 0, len(rows))
+	for _, r := range rows {
+		w := &worker.Worker{
+			ID:          r.ID,
+			Name:        r.Name,
+			Address:     r.Address,
+			State:       worker.State(r.State),
+			Capacity:    int(r.Capacity),
+			CurrentLoad: 0,
+			LastSeenAt:  r.LastSeenAt.Time,
+			CreatedAt:   r.CreatedAt.Time,
+			UpdatedAt:   r.UpdatedAt.Time,
 		}
 
-		if capsJSON != "" {
-			if err := json.Unmarshal([]byte(capsJSON), &w.Capabilities); err != nil {
+		if r.Capabilities != "" {
+			if err := json.Unmarshal([]byte(r.Capabilities), &w.Capabilities); err != nil {
 				db.logger.Warn("failed to parse worker capabilities", "worker_id", w.ID, "error", err)
 			}
 		}
 
 		// Reset runtime state after restart
-		w.CurrentLoad = 0
 		w.State = worker.StateOffline
 
 		workers = append(workers, w)

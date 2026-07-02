@@ -44,26 +44,26 @@ func NewRouter(db *database.DB, cfg *config.Config, pool *worker.Pool, jobQueue 
 	mux.HandleFunc("GET /api/auth/me", authHandler.Me)
 
 	// Protected endpoints (require auth)
-	mux.Handle("GET /api/v1/deployments", withAuth(http.HandlerFunc(deploymentHandler.List)))
-	mux.Handle("GET /api/v1/deployments/{id}", withAuth(http.HandlerFunc(deploymentHandler.GetByID)))
-	mux.Handle("POST /api/v1/deployments/{id}/stop", withAuth(http.HandlerFunc(deploymentHandler.Stop)))
-	mux.Handle("POST /api/v1/deployments/{id}/restart", withAuth(http.HandlerFunc(deploymentHandler.Restart)))
-	mux.Handle("GET /api/v1/deployments/{id}/logs", withAuth(http.HandlerFunc(deploymentHandler.Logs)))
+	mux.Handle("GET /api/v1/deployments", withAuth(db, http.HandlerFunc(deploymentHandler.List)))
+	mux.Handle("GET /api/v1/deployments/{id}", withAuth(db, http.HandlerFunc(deploymentHandler.GetByID)))
+	mux.Handle("POST /api/v1/deployments/{id}/stop", withAuth(db, http.HandlerFunc(deploymentHandler.Stop)))
+	mux.Handle("POST /api/v1/deployments/{id}/restart", withAuth(db, http.HandlerFunc(deploymentHandler.Restart)))
+	mux.Handle("GET /api/v1/deployments/{id}/logs", withAuth(db, http.HandlerFunc(deploymentHandler.Logs)))
 
-	mux.Handle("GET /api/v1/workers", withAuth(http.HandlerFunc(workerHandler.List)))
-	mux.Handle("GET /api/v1/workers/{id}", withAuth(http.HandlerFunc(workerHandler.GetByID)))
+	mux.Handle("GET /api/v1/workers", withAuth(db, http.HandlerFunc(workerHandler.List)))
+	mux.Handle("GET /api/v1/workers/{id}", withAuth(db, http.HandlerFunc(workerHandler.GetByID)))
 
-	mux.Handle("GET /api/v1/projects", withAuth(http.HandlerFunc(projectHandler.List)))
-	mux.Handle("GET /api/v1/projects/{id}", withAuth(http.HandlerFunc(projectHandler.GetByID)))
-	mux.Handle("POST /api/v1/projects", withAuth(http.HandlerFunc(projectHandler.Create)))
-	mux.Handle("DELETE /api/v1/projects/{id}", withAuth(http.HandlerFunc(projectHandler.Delete)))
+	mux.Handle("GET /api/v1/projects", withAuth(db, http.HandlerFunc(projectHandler.List)))
+	mux.Handle("GET /api/v1/projects/{id}", withAuth(db, http.HandlerFunc(projectHandler.GetByID)))
+	mux.Handle("POST /api/v1/projects", withAuth(db, http.HandlerFunc(projectHandler.Create)))
+	mux.Handle("DELETE /api/v1/projects/{id}", withAuth(db, http.HandlerFunc(projectHandler.Delete)))
 
-	mux.Handle("GET /api/v1/domains", withAuth(http.HandlerFunc(domainHandler.List)))
-	mux.Handle("POST /api/v1/domains", withAuth(http.HandlerFunc(domainHandler.Create)))
-	mux.Handle("DELETE /api/v1/domains/{id}", withAuth(http.HandlerFunc(domainHandler.Delete)))
-	mux.Handle("POST /api/v1/domains/{id}/projects", withAuth(http.HandlerFunc(domainHandler.ConnectProject)))
-	mux.Handle("DELETE /api/v1/domains/{id}/projects/{projectId}", withAuth(http.HandlerFunc(domainHandler.DisconnectProject)))
-	mux.Handle("GET /api/v1/projects/{projectId}/domains", withAuth(http.HandlerFunc(domainHandler.ListProjectDomains)))
+	mux.Handle("GET /api/v1/domains", withAuth(db, http.HandlerFunc(domainHandler.List)))
+	mux.Handle("POST /api/v1/domains", withAuth(db, http.HandlerFunc(domainHandler.Create)))
+	mux.Handle("DELETE /api/v1/domains/{id}", withAuth(db, http.HandlerFunc(domainHandler.Delete)))
+	mux.Handle("POST /api/v1/domains/{id}/projects", withAuth(db, http.HandlerFunc(domainHandler.ConnectProject)))
+	mux.Handle("DELETE /api/v1/domains/{id}/projects/{projectId}", withAuth(db, http.HandlerFunc(domainHandler.DisconnectProject)))
+	mux.Handle("GET /api/v1/projects/{projectId}/domains", withAuth(db, http.HandlerFunc(domainHandler.ListProjectDomains)))
 
 	// Worker endpoints (no auth required - workers authenticate via other means)
 	mux.HandleFunc("POST /api/workers/register", workerHandler.Register)
@@ -75,7 +75,7 @@ func NewRouter(db *database.DB, cfg *config.Config, pool *worker.Pool, jobQueue 
 
 	// Wrap with middleware
 	handler := withLogging(mux, logger)
-	handler = withCORS(handler)
+	handler = withCORS(handler, cfg.CORSOrigins)
 	handler = withRecovery(handler)
 
 	return &Server{
@@ -110,12 +110,30 @@ func withLogging(next http.Handler, logger *slog.Logger) http.Handler {
 	})
 }
 
-// withCORS adds CORS headers
-func withCORS(next http.Handler) http.Handler {
+// withCORS adds CORS headers with dynamic origin support
+func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
+	allowAll := false
+	originSet := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		if o == "*" {
+			allowAll = true
+		}
+		originSet[o] = true
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+
+		if allowAll {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		} else if originSet[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		if r.Method == "OPTIONS" {
@@ -151,26 +169,28 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// withAuth adds authentication middleware
-func withAuth(next http.Handler) http.Handler {
+// withAuth adds authentication middleware that validates sessions against DB
+func withAuth(db *database.DB, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get session token from cookie
 		cookie, err := r.Cookie("__Host-sid")
 		if err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// TODO: Validate session token against database
-		// For now, just check if it exists
 		if cookie.Value == "" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// TODO: Get user ID from session and add to context
-		// For now, just pass through
-		next.ServeHTTP(w, r)
+		userID, err := db.Q().GetSessionByToken(r.Context(), cookie.Value)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), handler.UserIDKey, userID)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

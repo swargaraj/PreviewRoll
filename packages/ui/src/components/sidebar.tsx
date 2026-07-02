@@ -5,7 +5,7 @@ import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
 import { PanelLeftIcon } from "lucide-react";
 import * as React from "react";
-import { useMediaQuery } from "@/hooks/use-media-query";
+import { useMediaQuery } from "@previewroll/ui/hooks/use-media-query";
 import { cn } from "@previewroll/ui/lib/utils";
 import { Button } from "@previewroll/ui/components/button";
 import { Input } from "@previewroll/ui/components/input";
@@ -378,7 +378,7 @@ export function SidebarFooter({
 }: React.ComponentProps<"div">): React.ReactElement {
   return (
     <div
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn("flex flex-col gap-2", className)}
       data-sidebar="footer"
       data-slot="sidebar-footer"
       {...props}

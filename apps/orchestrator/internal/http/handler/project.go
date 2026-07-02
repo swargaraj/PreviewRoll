@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database"
+	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database/sqlc"
 )
 
 // ProjectHandler handles project requests
@@ -18,55 +19,18 @@ func NewProjectHandler(db *database.DB) *ProjectHandler {
 	return &ProjectHandler{db: db}
 }
 
-// Project represents a project
-type Project struct {
-	ID            int64  `json:"id"`
-	UserID        int64  `json:"user_id"`
-	Name          string `json:"name"`
-	GithubRepo    string `json:"github_repo"`
-	GithubRepoID  int64  `json:"github_repo_id"`
-	WebhookSecret string `json:"-"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
-}
-
-// CreateProjectRequest represents the request to create a project
-type CreateProjectRequest struct {
-	Name          string `json:"name"`
-	GithubRepo    string `json:"github_repo"`
-	GithubRepoID  int64  `json:"github_repo_id"`
-	WebhookSecret string `json:"webhook_secret"`
-}
-
 // List returns a list of projects
 func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context (set by auth middleware)
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
-	rows, err := h.db.Query(`
-		SELECT id, user_id, name, github_repo, github_repo_id, created_at, updated_at
-		FROM projects WHERE user_id = ?
-		ORDER BY created_at DESC
-	`, userID)
+	projects, err := h.db.Q().ListProjectsByUserID(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "Failed to query projects", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
 
-	var projects []*Project
-	for rows.Next() {
-		p := &Project{}
-		err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.GithubRepo, &p.GithubRepoID, &p.CreatedAt, &p.UpdatedAt)
-		if err != nil {
-			http.Error(w, "Failed to scan project", http.StatusInternalServerError)
-			return
-		}
-		projects = append(projects, p)
+	if projects == nil {
+		projects = []sqlc.Project{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -82,18 +46,22 @@ func (h *ProjectHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p := &Project{}
-	err = h.db.QueryRow(`
-		SELECT id, user_id, name, github_repo, github_repo_id, created_at, updated_at
-		FROM projects WHERE id = ?
-	`, id).Scan(&p.ID, &p.UserID, &p.Name, &p.GithubRepo, &p.GithubRepoID, &p.CreatedAt, &p.UpdatedAt)
+	project, err := h.db.Q().GetProjectByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(p)
+	json.NewEncoder(w).Encode(project)
+}
+
+// CreateProjectRequest represents the request to create a project
+type CreateProjectRequest struct {
+	Name          string `json:"name"`
+	GithubRepo    string `json:"github_repo"`
+	GithubRepoID  int64  `json:"github_repo_id"`
+	WebhookSecret string `json:"webhook_secret"`
 }
 
 // Create creates a new project
@@ -104,36 +72,29 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user ID from context
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
-	// Validate input
 	if req.Name == "" || req.GithubRepo == "" {
 		http.Error(w, "Name and github_repo are required", http.StatusBadRequest)
 		return
 	}
 
-	// Insert project
-	var projectID int64
-	err := h.db.QueryRow(`
-		INSERT INTO projects (user_id, name, github_repo, github_repo_id, webhook_secret)
-		VALUES (?, ?, ?, ?, ?)
-		RETURNING id
-	`, userID, req.Name, req.GithubRepo, req.GithubRepoID, req.WebhookSecret).Scan(&projectID)
+	project, err := h.db.Q().CreateProject(r.Context(), sqlc.CreateProjectParams{
+		UserID:        userID,
+		Name:          req.Name,
+		GithubRepo:    req.GithubRepo,
+		GithubRepoID:  req.GithubRepoID,
+		WebhookSecret: req.WebhookSecret,
+	})
 	if err != nil {
 		http.Error(w, "Failed to create project", http.StatusInternalServerError)
 		return
 	}
 
-	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"id": projectID,
+		"id": project.ID,
 	})
 }
 
@@ -146,18 +107,9 @@ func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete project
-	result, err := h.db.Exec(`
-		DELETE FROM projects WHERE id = ?
-	`, id)
+	err = h.db.Q().DeleteProject(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Failed to delete project", http.StatusInternalServerError)
-		return
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 

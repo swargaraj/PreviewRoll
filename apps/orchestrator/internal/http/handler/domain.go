@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database"
+	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database/sqlc"
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/domain"
 )
 
@@ -29,23 +30,17 @@ func (h *DomainHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
 	if req.Name == "" {
 		http.Error(w, "Domain name is required", http.StatusBadRequest)
 		return
 	}
 
-	var domainID int64
-	err := h.db.QueryRow(`
-		INSERT INTO domains (user_id, name)
-		VALUES (?, ?)
-		RETURNING id
-	`, userID, req.Name).Scan(&domainID)
+	domainID, err := h.db.Q().CreateDomain(r.Context(), sqlc.CreateDomainParams{
+		UserID: userID,
+		Name:   req.Name,
+	})
 	if err != nil {
 		http.Error(w, "Domain already exists or failed to create", http.StatusConflict)
 		return
@@ -60,32 +55,16 @@ func (h *DomainHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // List returns all domains for the current user
 func (h *DomainHandler) List(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
-	rows, err := h.db.Query(`
-		SELECT id, user_id, name, created_at, updated_at
-		FROM domains WHERE user_id = ?
-		ORDER BY created_at DESC
-	`, userID)
+	domains, err := h.db.Q().ListDomainsByUserID(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "Failed to query domains", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
 
-	var domains []*domain.Domain
-	for rows.Next() {
-		d := &domain.Domain{}
-		err := rows.Scan(&d.ID, &d.UserID, &d.Name, &d.CreatedAt, &d.UpdatedAt)
-		if err != nil {
-			http.Error(w, "Failed to scan domain", http.StatusInternalServerError)
-			return
-		}
-		domains = append(domains, d)
+	if domains == nil {
+		domains = []sqlc.Domain{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -101,23 +80,14 @@ func (h *DomainHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
-	result, err := h.db.Exec(`
-		DELETE FROM domains WHERE id = ? AND user_id = ?
-	`, id, userID)
+	err = h.db.Q().DeleteDomainByIDAndUser(r.Context(), sqlc.DeleteDomainByIDAndUserParams{
+		ID:     id,
+		UserID: userID,
+	})
 	if err != nil {
 		http.Error(w, "Failed to delete domain", http.StatusInternalServerError)
-		return
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		http.Error(w, "Domain not found", http.StatusNotFound)
 		return
 	}
 
@@ -142,49 +112,35 @@ func (h *DomainHandler) ConnectProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
 	if req.ProjectID == 0 {
 		http.Error(w, "project_id is required", http.StatusBadRequest)
 		return
 	}
 
-	// Verify domain belongs to user
-	var count int
-	err = h.db.QueryRow(`
-		SELECT COUNT(*) FROM domains WHERE id = ? AND user_id = ?
-	`, domainID, userID).Scan(&count)
-	if err != nil || count == 0 {
+	domainOwnerID, err := h.db.Q().GetDomainByID(r.Context(), domainID)
+	if err != nil || domainOwnerID != userID {
 		http.Error(w, "Domain not found", http.StatusNotFound)
 		return
 	}
 
-	// Verify project belongs to user
-	err = h.db.QueryRow(`
-		SELECT COUNT(*) FROM projects WHERE id = ? AND user_id = ?
-	`, req.ProjectID, userID).Scan(&count)
-	if err != nil || count == 0 {
+	projectOwnerID, err := h.db.Q().GetProjectOwnerByID(r.Context(), req.ProjectID)
+	if err != nil || projectOwnerID != userID {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 
-	// Set default prefix
 	prefix := req.Prefix
 	if prefix == "" {
 		prefix = "preview"
 	}
 
-	// Connect domain to project
-	var projectDomainID int64
-	err = h.db.QueryRow(`
-		INSERT INTO project_domains (project_id, domain_id, prefix)
-		VALUES (?, ?, ?)
-		RETURNING id
-	`, req.ProjectID, domainID, prefix).Scan(&projectDomainID)
+	projectDomainID, err := h.db.Q().CreateProjectDomain(r.Context(), sqlc.CreateProjectDomainParams{
+		ProjectID: req.ProjectID,
+		DomainID:  domainID,
+		Prefix:    prefix,
+	})
 	if err != nil {
 		http.Error(w, "Domain already connected to this project or failed to connect", http.StatusConflict)
 		return
@@ -213,32 +169,19 @@ func (h *DomainHandler) DisconnectProject(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
-	// Verify domain belongs to user
-	var count int
-	err = h.db.QueryRow(`
-		SELECT COUNT(*) FROM domains WHERE id = ? AND user_id = ?
-	`, domainID, userID).Scan(&count)
-	if err != nil || count == 0 {
+	domainOwnerID, err := h.db.Q().GetDomainByID(r.Context(), domainID)
+	if err != nil || domainOwnerID != userID {
 		http.Error(w, "Domain not found", http.StatusNotFound)
 		return
 	}
 
-	result, err := h.db.Exec(`
-		DELETE FROM project_domains WHERE domain_id = ? AND project_id = ?
-	`, domainID, projectID)
+	err = h.db.Q().DeleteProjectDomain(r.Context(), sqlc.DeleteProjectDomainParams{
+		DomainID:  domainID,
+		ProjectID: projectID,
+	})
 	if err != nil {
-		http.Error(w, "Failed to disconnect domain from project", http.StatusInternalServerError)
-		return
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
 		http.Error(w, "Domain not connected to this project", http.StatusNotFound)
 		return
 	}
@@ -258,43 +201,22 @@ func (h *DomainHandler) ListProjectDomains(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userID := r.Context().Value("user_id")
-	if userID == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	userID := r.Context().Value(UserIDKey).(int64)
 
-	// Verify project belongs to user
-	var count int
-	err = h.db.QueryRow(`
-		SELECT COUNT(*) FROM projects WHERE id = ? AND user_id = ?
-	`, projectID, userID).Scan(&count)
-	if err != nil || count == 0 {
+	projectOwnerID, err := h.db.Q().GetProjectOwnerByID(r.Context(), projectID)
+	if err != nil || projectOwnerID != userID {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 
-	rows, err := h.db.Query(`
-		SELECT pd.id, pd.project_id, pd.domain_id, d.name, pd.prefix
-		FROM project_domains pd
-		INNER JOIN domains d ON pd.domain_id = d.id
-		WHERE pd.project_id = ?
-	`, projectID)
+	projectDomains, err := h.db.Q().ListProjectDomains(r.Context(), projectID)
 	if err != nil {
 		http.Error(w, "Failed to query project domains", http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
 
-	var projectDomains []*domain.ProjectDomainDetail
-	for rows.Next() {
-		pd := &domain.ProjectDomainDetail{}
-		err := rows.Scan(&pd.ID, &pd.ProjectID, &pd.DomainID, &pd.DomainName, &pd.Prefix)
-		if err != nil {
-			http.Error(w, "Failed to scan project domain", http.StatusInternalServerError)
-			return
-		}
-		projectDomains = append(projectDomains, pd)
+	if projectDomains == nil {
+		projectDomains = []sqlc.ListProjectDomainsRow{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

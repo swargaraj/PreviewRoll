@@ -21,13 +21,11 @@ func NewDeploymentHandler(db *database.DB) *DeploymentHandler {
 
 // List returns a list of deployments
 func (h *DeploymentHandler) List(w http.ResponseWriter, r *http.Request) {
-	// Parse query parameters
 	projectID := r.URL.Query().Get("project_id")
 	state := r.URL.Query().Get("state")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
-	// Build query
 	query := "SELECT id, project_id, worker_id, pr_number, commit_sha, branch, state, preview_url, container_id, build_log_path, error_message, attempt, created_at, updated_at, started_at, completed_at FROM deployments WHERE 1=1"
 	args := []interface{}{}
 
@@ -59,7 +57,6 @@ func (h *DeploymentHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Execute query
 	rows, err := h.db.Query(query, args...)
 	if err != nil {
 		http.Error(w, "Failed to query deployments", http.StatusInternalServerError)
@@ -67,7 +64,6 @@ func (h *DeploymentHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// Scan results
 	var deployments []*deployment.Deployment
 	for rows.Next() {
 		d := &deployment.Deployment{}
@@ -84,6 +80,10 @@ func (h *DeploymentHandler) List(w http.ResponseWriter, r *http.Request) {
 		deployments = append(deployments, d)
 	}
 
+	if deployments == nil {
+		deployments = []*deployment.Deployment{}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(deployments)
 }
@@ -97,16 +97,7 @@ func (h *DeploymentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := &deployment.Deployment{}
-	err = h.db.QueryRow(`
-		SELECT id, project_id, worker_id, pr_number, commit_sha, branch, state, preview_url, container_id, build_log_path, error_message, attempt, created_at, updated_at, started_at, completed_at
-		FROM deployments WHERE id = ?
-	`, id).Scan(
-		&d.ID, &d.ProjectID, &d.WorkerID, &d.PRNumber, &d.CommitSHA,
-		&d.Branch, &d.State, &d.PreviewURL, &d.ContainerID,
-		&d.BuildLogPath, &d.ErrorMessage, &d.Attempt,
-		&d.CreatedAt, &d.UpdatedAt, &d.StartedAt, &d.CompletedAt,
-	)
+	d, err := h.db.Q().GetDeploymentByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
@@ -125,11 +116,7 @@ func (h *DeploymentHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update deployment state
-	_, err = h.db.Exec(`
-		UPDATE deployments SET state = 'stopped', updated_at = datetime('now'), completed_at = datetime('now')
-		WHERE id = ? AND state NOT IN ('stopped', 'destroyed')
-	`, id)
+	err = h.db.Q().UpdateDeploymentForStop(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Failed to stop deployment", http.StatusInternalServerError)
 		return
@@ -150,11 +137,7 @@ func (h *DeploymentHandler) Restart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reset deployment state to queued
-	_, err = h.db.Exec(`
-		UPDATE deployments SET state = 'queued', worker_id = NULL, container_id = NULL, error_message = NULL, attempt = attempt + 1, updated_at = datetime('now')
-		WHERE id = ? AND state IN ('failed', 'stopped')
-	`, id)
+	err = h.db.Q().UpdateDeploymentForRestart(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Failed to restart deployment", http.StatusInternalServerError)
 		return
@@ -175,8 +158,6 @@ func (h *DeploymentHandler) Logs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement SSE log streaming
-	// For now, return placeholder
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Log streaming not yet implemented",

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config holds all configuration for the orchestrator
@@ -33,6 +34,9 @@ type Config struct {
 	LogDir    string
 	LogMaxAge int
 
+	// CORS
+	CORSOrigins []string
+
 	// Proxy
 	BaseDomain  string
 	TraefikAddr string
@@ -54,6 +58,7 @@ func Load() (*Config, error) {
 		MaxConcurrent:    getEnvInt("MAX_CONCURRENT", 5),
 		LogDir:           getEnv("LOG_DIR", "./data/logs"),
 		LogMaxAge:        getEnvInt("LOG_MAX_AGE", 30), // days
+		CORSOrigins:      getEnvList("CORS_ORIGINS", "*"),
 		BaseDomain:       getEnv("BASE_DOMAIN", "preview.localhost"),
 		TraefikAddr:      getEnv("TRAEFIK_ADDR", "http://localhost:8080"),
 	}
@@ -80,4 +85,16 @@ func getEnvInt(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func getEnvList(key, fallback string) []string {
+	value := getEnv(key, fallback)
+	var list []string
+	for _, item := range strings.Split(value, ",") {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			list = append(list, trimmed)
+		}
+	}
+	return list
 }
