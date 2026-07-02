@@ -1,0 +1,19 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "sqlc/queries.sql"
+    schema: "internal/database/migrations"
+    gen:
+      go:
+        package: "sqlc"
+        out: "internal/database/sqlc"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_empty_slices: true
+        overrides:
+          db_type: "TEXT"
+          go_type: "string"
+          import:
+            package: ""
+            path: ""
+          nullable: false
