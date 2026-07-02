@@ -11,6 +11,8 @@ import {
 import "./index.css";
 import type { Route } from "./+types/root";
 import { ThemeProvider } from "./components/theme-provider";
+import { ConnectionProvider } from "./context/connection-context";
+import { AuthProvider } from "./context/auth-context";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,8 +40,12 @@ export default function App() {
       disableTransitionOnChange
       storageKey="vite-ui-theme"
     >
-      <Outlet />
-      <Toaster richColors />
+      <ConnectionProvider>
+        <AuthProvider>
+          <Outlet />
+          <Toaster richColors />
+        </AuthProvider>
+      </ConnectionProvider>
     </ThemeProvider>
   );
 }
