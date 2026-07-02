@@ -18,7 +18,6 @@
     "check": "oxlint && oxfmt --write"
   },
   "dependencies": {
-    "@previewroll/env": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
