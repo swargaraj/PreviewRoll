@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -17,12 +18,10 @@ import (
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/queue"
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/scheduler"
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/worker"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func main() {
-	logger := slog.New(tint.NewHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
@@ -31,23 +30,24 @@ func main() {
 
 	var level slog.Level
 	if err := level.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
-		slog.Warn(
-			"invalid log level, using info",
-			"value", cfg.LogLevel,
-			"error", err,
-		)
 		level = slog.LevelInfo
 	}
 
-	logger = slog.New(tint.NewHandler(os.Stdout, &tint.Options{
-		Level: level,
-	}))
+	tintHandler := tint.NewHandler(os.Stdout, &tint.Options{Level: level})
+	fileHandler := slog.NewTextHandler(&lumberjack.Logger{
+		Filename: filepath.Join(cfg.LogDir, "orchestrator.log"),
+		MaxAge:   cfg.LogMaxAge,
+		Compress: true,
+	}, &slog.HandlerOptions{Level: level})
+
+	logger := slog.New(slog.NewMultiHandler(tintHandler, fileHandler))
 	slog.SetDefault(logger)
 
 	slog.Info("starting orchestrator",
 		"http_addr", cfg.HTTPAddr,
 		"grpc_addr", cfg.GRPCAddr,
 		"database_path", cfg.DatabasePath,
+		"log_dir", cfg.LogDir,
 	)
 
 	db, err := database.New(cfg.DatabasePath)

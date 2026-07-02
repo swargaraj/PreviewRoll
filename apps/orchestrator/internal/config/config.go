@@ -58,7 +58,7 @@ func Load() (*Config, error) {
 		MaxConcurrent:    getEnvInt("MAX_CONCURRENT", 5),
 		LogDir:           getEnv("LOG_DIR", "./data/logs"),
 		LogMaxAge:        getEnvInt("LOG_MAX_AGE", 30), // days
-		CORSOrigins:      getEnvList("CORS_ORIGINS", "*"),
+		CORSOrigins:      getEnvList("CORS_ORIGINS", ""),
 		BaseDomain:       getEnv("BASE_DOMAIN", "preview.localhost"),
 		TraefikAddr:      getEnv("TRAEFIK_ADDR", "http://localhost:8080"),
 	}

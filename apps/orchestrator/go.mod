@@ -5,6 +5,7 @@ go 1.26.4
 require (
 	github.com/lmittmann/tint v1.1.3
 	golang.org/x/crypto v0.53.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	modernc.org/sqlite v1.53.0
 )
 

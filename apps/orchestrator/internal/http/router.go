@@ -121,6 +121,10 @@ func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
 		originSet[o] = true
 	}
 
+	if len(allowedOrigins) > 0 {
+		slog.Warn("CORS enabled", "allowed_origins", allowedOrigins)
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 
