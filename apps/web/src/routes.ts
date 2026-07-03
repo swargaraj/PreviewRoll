@@ -1,4 +1,14 @@
-import { type RouteConfig } from "@react-router/dev/routes";
-import { flatRoutes } from "@react-router/fs-routes";
+import {
+  type RouteConfig,
+  index,
+  layout,
+  route,
+} from "@react-router/dev/routes";
 
-export default flatRoutes() satisfies RouteConfig;
+export default [
+  layout("./routes/layout.tsx", [
+    index("./routes/home.tsx"),
+    route("projects", "./routes/projects.tsx"),
+  ]),
+  route("login", "./routes/login.tsx"),
+] satisfies RouteConfig;

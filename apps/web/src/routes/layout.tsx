@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, useNavigate } from "react-router";
 
-import type { Route } from "./+types/_index";
+import type { Route } from "./+types/layout";
 import { useAuth } from "@/context/auth-context";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@previewroll/ui/components/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -10,7 +10,7 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "PreviewRoll" }, { name: "description", content: "PreviewRoll" }];
 }
 
-export default function Home() {
+export default function DashboardLayout() {
   const { isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -31,16 +31,16 @@ export default function Home() {
   }
 
   return (
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-            <div className="flex items-center gap-2 pt-4">
-              <SidebarTrigger />
-            </div>
-            <Outlet />
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          <div className="flex items-center gap-2 pt-4">
+            <SidebarTrigger />
           </div>
-        </SidebarInset>
-      </SidebarProvider>
+          <Outlet />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

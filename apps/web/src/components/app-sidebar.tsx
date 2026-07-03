@@ -1,13 +1,11 @@
 import { Link, useLocation, useNavigate } from "react-router";
 import {
-  GitPullRequestArrow,
   LayoutGrid,
   Box,
   Rocket,
   Waypoints,
   HardDrive,
   Logs,
-  Settings,
   FileText,
   HelpCircle,
   LogOut,
@@ -30,13 +28,12 @@ import { useAuth } from "@/context/auth-context";
 import { logout } from "@/services/auth";
 
 const mainNav = [
-  { label: "Overview", to: "/dashboard", icon: LayoutGrid },
-  { label: "Projects", to: "/dashboard/projects", icon: Box },
-  { label: "Deployments", to: "/dashboard/deployments", icon: Rocket },
-  { label: "Previews", to: "/dashboard/previews", icon: Waypoints },
-  { label: "Workers", to: "/dashboard/workers", icon: HardDrive },
-  { label: "Logs", to: "/dashboard/logs", icon: Logs },
-  { label: "Settings", to: "/dashboard/settings", icon: Settings },
+  { label: "Overview", to: "/", icon: LayoutGrid },
+  { label: "Projects", to: "/projects", icon: Box },
+  { label: "Deployments", to: "/deployments", icon: Rocket },
+  { label: "Previews", to: "/previews", icon: Waypoints },
+  { label: "Workers", to: "/workers", icon: HardDrive },
+  { label: "Logs", to: "/logs", icon: Logs },
 ];
 
 const secondaryNav = [
@@ -58,24 +55,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-none">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/dashboard" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <GitPullRequestArrow className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">PreviewRoll</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarHeader className="pt-6 px-6">
+        <Link to="/">
+            <img src="/full-logo.png" alt="PreviewRoll" className="w-30 h-auto" />
+        </Link>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="p-2">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2">
               {mainNav.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
@@ -91,7 +79,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="p-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
