@@ -1,3 +1,13 @@
+// @title           PreviewRoll API
+// @version         1.0
+// @description     Preview deployment platform API
+// @host            localhost:8080
+// @BasePath        /
+// @schemes         http https
+//
+// @securityDefinitions.apikey CookieAuth
+// @in                         cookie
+// @name                       __Host-sid
 package main
 
 import (

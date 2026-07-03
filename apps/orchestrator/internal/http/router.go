@@ -100,13 +100,22 @@ func withLogging(next http.Handler, logger *slog.Logger) http.Handler {
 
 		next.ServeHTTP(wrapped, r)
 
-		logger.Info("request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", wrapped.statusCode,
-			"duration", time.Since(start).String(),
-			"remote_addr", r.RemoteAddr,
-		)
+		attrs := []slog.Attr{
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Int("status", wrapped.statusCode),
+			slog.String("duration", time.Since(start).String()),
+			slog.String("remote_addr", r.RemoteAddr),
+		}
+
+		switch {
+		case wrapped.statusCode >= 500:
+			logger.LogAttrs(r.Context(), slog.LevelError, "request", attrs...)
+		case wrapped.statusCode >= 400:
+			logger.LogAttrs(r.Context(), slog.LevelWarn, "request", attrs...)
+		default:
+			logger.LogAttrs(r.Context(), slog.LevelInfo, "request", attrs...)
+		}
 	})
 }
 

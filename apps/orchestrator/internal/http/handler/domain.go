@@ -20,6 +20,18 @@ func NewDomainHandler(db *database.DB) *DomainHandler {
 	return &DomainHandler{db: db}
 }
 
+// Create godoc
+// @Summary      Create a domain
+// @Description  Add a new domain
+// @Tags         domains
+// @Accept       json
+// @Produce      json
+// @Param        body  body  object{name=string}  true  "Domain name"
+// @Success      201  {object}  map[string]int64
+// @Failure      400  {object}  string
+// @Failure      409  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/domains [post]
 // Create adds a new domain
 func (h *DomainHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -53,6 +65,15 @@ func (h *DomainHandler) Create(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// List godoc
+// @Summary      List domains
+// @Description  Get list of domains for the authenticated user
+// @Tags         domains
+// @Produce      json
+// @Success      200  {array}   object
+// @Failure      500  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/domains [get]
 // List returns all domains for the current user
 func (h *DomainHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(int64)
@@ -71,6 +92,17 @@ func (h *DomainHandler) List(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(domains)
 }
 
+// Delete godoc
+// @Summary      Delete a domain
+// @Description  Delete a domain by ID
+// @Tags         domains
+// @Produce      json
+// @Param        id   path  int  true  "Domain ID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Failure      500  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/domains/{id} [delete]
 // Delete removes a domain
 func (h *DomainHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -97,6 +129,20 @@ func (h *DomainHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ConnectProject godoc
+// @Summary      Connect domain to project
+// @Description  Connect a domain to a project with a prefix
+// @Tags         domains
+// @Accept       json
+// @Produce      json
+// @Param        id    path  int                       true  "Domain ID"
+// @Param        body  body  domain.ConnectProjectRequest  true  "Project connection details"
+// @Success      201  {object}  map[string]int64
+// @Failure      400  {object}  string
+// @Failure      404  {object}  string
+// @Failure      409  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/domains/{id}/projects [post]
 // ConnectProject connects a domain to a project with a prefix
 func (h *DomainHandler) ConnectProject(w http.ResponseWriter, r *http.Request) {
 	domainIDStr := r.PathValue("id")
@@ -153,6 +199,18 @@ func (h *DomainHandler) ConnectProject(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DisconnectProject godoc
+// @Summary      Disconnect domain from project
+// @Description  Remove a domain connection from a project
+// @Tags         domains
+// @Produce      json
+// @Param        id         path  int  true  "Domain ID"
+// @Param        projectId  path  int  true  "Project ID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Failure      404  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/domains/{id}/projects/{projectId} [delete]
 // DisconnectProject removes a domain from a project
 func (h *DomainHandler) DisconnectProject(w http.ResponseWriter, r *http.Request) {
 	domainIDStr := r.PathValue("id")
@@ -192,6 +250,18 @@ func (h *DomainHandler) DisconnectProject(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// ListProjectDomains godoc
+// @Summary      List project domains
+// @Description  Get all domains connected to a project
+// @Tags         domains
+// @Produce      json
+// @Param        projectId  path  int  true  "Project ID"
+// @Success      200  {array}   object
+// @Failure      400  {object}  string
+// @Failure      404  {object}  string
+// @Failure      500  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/projects/{projectId}/domains [get]
 // ListProjectDomains returns all domains connected to a project
 func (h *DomainHandler) ListProjectDomains(w http.ResponseWriter, r *http.Request) {
 	projectIDStr := r.PathValue("projectId")

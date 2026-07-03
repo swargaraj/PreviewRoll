@@ -1,0 +1,1061 @@
+basePath: /
+definitions:
+  deployment.Deployment:
+    properties:
+      attempt:
+        type: integer
+      branch:
+        type: string
+      build_log_path:
+        type: string
+      commit_sha:
+        type: string
+      completed_at:
+        type: string
+      container_id:
+        type: string
+      created_at:
+        type: string
+      error_message:
+        type: string
+      id:
+        type: integer
+      pr_number:
+        type: integer
+      preview_url:
+        type: string
+      project_id:
+        type: integer
+      started_at:
+        type: string
+      state:
+        $ref: '#/definitions/deployment.State'
+      updated_at:
+        type: string
+      worker_id:
+        type: integer
+    type: object
+  deployment.State:
+    enum:
+    - queued
+    - assigned
+    - building
+    - running
+    - interrupted
+    - failed
+    - stopped
+    - destroyed
+    type: string
+    x-enum-varnames:
+    - StateQueued
+    - StateAssigned
+    - StateBuilding
+    - StateRunning
+    - StateInterrupted
+    - StateFailed
+    - StateStopped
+    - StateDestroyed
+  domain.ConnectProjectRequest:
+    properties:
+      prefix:
+        type: string
+      project_id:
+        type: integer
+    type: object
+  handler.CreateProjectRequest:
+    properties:
+      name:
+        type: string
+      repo_url:
+        type: string
+      vcs_provider:
+        type: string
+      webhook_secret:
+        type: string
+    type: object
+  handler.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  handler.PaginatedResponse:
+    properties:
+      items: {}
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  handler.RegisterRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  handler.UserResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      username:
+        type: string
+    type: object
+  handler.WebhookPayload:
+    properties:
+      action:
+        type: string
+      pull_request:
+        properties:
+          base:
+            properties:
+              ref:
+                type: string
+            type: object
+          head:
+            properties:
+              ref:
+                type: string
+              sha:
+                type: string
+            type: object
+          number:
+            type: integer
+        type: object
+      repository:
+        properties:
+          full_name:
+            type: string
+          id:
+            type: integer
+        type: object
+    type: object
+  worker.Capabilities:
+    properties:
+      features:
+        items:
+          type: string
+        type: array
+      languages:
+        items:
+          type: string
+        type: array
+      platforms:
+        items:
+          type: string
+        type: array
+    type: object
+  worker.DeregisterRequest:
+    properties:
+      reason:
+        type: string
+      worker_id:
+        type: integer
+    type: object
+  worker.HeartbeatRequest:
+    properties:
+      current_load:
+        type: integer
+      worker_id:
+        type: integer
+    type: object
+  worker.HeartbeatResponse:
+    properties:
+      status:
+        type: string
+      timestamp:
+        type: integer
+    type: object
+  worker.RegisterRequest:
+    properties:
+      address:
+        type: string
+      capabilities:
+        $ref: '#/definitions/worker.Capabilities'
+      capacity:
+        type: integer
+      name:
+        type: string
+    type: object
+  worker.RegisterResponse:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+      worker_id:
+        type: integer
+    type: object
+  worker.State:
+    enum:
+    - online
+    - offline
+    - busy
+    type: string
+    x-enum-varnames:
+    - StateOnline
+    - StateOffline
+    - StateBusy
+  worker.Worker:
+    properties:
+      address:
+        type: string
+      capabilities:
+        $ref: '#/definitions/worker.Capabilities'
+      capacity:
+        type: integer
+      created_at:
+        type: string
+      current_load:
+        type: integer
+      id:
+        type: integer
+      last_seen_at:
+        type: string
+      name:
+        type: string
+      state:
+        $ref: '#/definitions/worker.State'
+      updated_at:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Preview deployment platform API
+  title: PreviewRoll API
+  version: "1.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and create session
+      parameters:
+      - description: Login credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Login
+      tags:
+      - auth
+  /api/auth/logout:
+    post:
+      description: End the current session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Logout
+      tags:
+      - auth
+  /api/auth/me:
+    get:
+      description: Returns the authenticated user's profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.UserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get current user
+      tags:
+      - auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account
+      parameters:
+      - description: Registration credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Register a new user
+      tags:
+      - auth
+  /api/v1/deployments:
+    get:
+      description: Get list of deployments with optional filters
+      parameters:
+      - description: Filter by project ID
+        in: query
+        name: project_id
+        type: string
+      - description: Filter by state
+        in: query
+        name: state
+        type: string
+      - description: Limit results
+        in: query
+        name: limit
+        type: string
+      - description: Offset results
+        in: query
+        name: offset
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/deployment.Deployment'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: List deployments
+      tags:
+      - deployments
+  /api/v1/deployments/{id}:
+    get:
+      description: Returns a single deployment
+      parameters:
+      - description: Deployment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/deployment.Deployment'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get deployment by ID
+      tags:
+      - deployments
+  /api/v1/deployments/{id}/logs:
+    get:
+      description: Returns logs for a deployment (not yet implemented)
+      parameters:
+      - description: Deployment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get deployment logs
+      tags:
+      - deployments
+  /api/v1/deployments/{id}/restart:
+    post:
+      description: Restart a stopped or failed deployment
+      parameters:
+      - description: Deployment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Restart a deployment
+      tags:
+      - deployments
+  /api/v1/deployments/{id}/stop:
+    post:
+      description: Stop a running deployment
+      parameters:
+      - description: Deployment ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Stop a deployment
+      tags:
+      - deployments
+  /api/v1/domains:
+    get:
+      description: Get list of domains for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: List domains
+      tags:
+      - domains
+    post:
+      consumes:
+      - application/json
+      description: Add a new domain
+      parameters:
+      - description: Domain name
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Create a domain
+      tags:
+      - domains
+  /api/v1/domains/{id}:
+    delete:
+      description: Delete a domain by ID
+      parameters:
+      - description: Domain ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Delete a domain
+      tags:
+      - domains
+  /api/v1/domains/{id}/projects:
+    post:
+      consumes:
+      - application/json
+      description: Connect a domain to a project with a prefix
+      parameters:
+      - description: Domain ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Project connection details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ConnectProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "409":
+          description: Conflict
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Connect domain to project
+      tags:
+      - domains
+  /api/v1/domains/{id}/projects/{projectId}:
+    delete:
+      description: Remove a domain connection from a project
+      parameters:
+      - description: Domain ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Disconnect domain from project
+      tags:
+      - domains
+  /api/v1/projects:
+    get:
+      description: Get paginated list of projects for the authenticated user
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: page_size
+        type: integer
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.PaginatedResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: List projects
+      tags:
+      - projects
+    post:
+      consumes:
+      - application/json
+      description: Create a new project
+      parameters:
+      - description: Project details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateProjectRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              format: int64
+              type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Create a project
+      tags:
+      - projects
+  /api/v1/projects/{id}:
+    delete:
+      description: Delete a project by ID
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Delete a project
+      tags:
+      - projects
+    get:
+      description: Returns a single project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get project by ID
+      tags:
+      - projects
+  /api/v1/projects/{projectId}/domains:
+    get:
+      description: Get all domains connected to a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: List project domains
+      tags:
+      - domains
+  /api/v1/workers:
+    get:
+      description: Get list of all registered workers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/worker.Worker'
+            type: array
+      security:
+      - CookieAuth: []
+      summary: List workers
+      tags:
+      - workers
+  /api/v1/workers/{id}:
+    get:
+      description: Returns a single worker
+      parameters:
+      - description: Worker ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/worker.Worker'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get worker by ID
+      tags:
+      - workers
+  /api/workers/deregister:
+    post:
+      consumes:
+      - application/json
+      description: Mark a worker as offline
+      parameters:
+      - description: Deregister details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/worker.DeregisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Deregister a worker
+      tags:
+      - workers
+  /api/workers/heartbeat:
+    post:
+      consumes:
+      - application/json
+      description: Update worker load and last seen timestamp
+      parameters:
+      - description: Heartbeat data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/worker.HeartbeatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/worker.HeartbeatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Worker heartbeat
+      tags:
+      - workers
+  /api/workers/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new worker with the orchestrator
+      parameters:
+      - description: Worker details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/worker.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/worker.RegisterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Register a worker
+      tags:
+      - workers
+  /healthz:
+    get:
+      description: Returns service health status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - health
+  /readyz:
+    get:
+      description: Returns service readiness status including database connectivity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Readiness check
+      tags:
+      - health
+  /webhook/github:
+    post:
+      consumes:
+      - application/json
+      description: Handle incoming GitHub webhook events (push, pull_request, ping)
+      parameters:
+      - description: HMAC-SHA256 signature
+        in: header
+        name: X-Hub-Signature-256
+        required: true
+        type: string
+      - description: Event type
+        in: header
+        name: X-GitHub-Event
+        required: true
+        type: string
+      - description: GitHub webhook payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.WebhookPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      summary: GitHub webhook
+      tags:
+      - webhooks
+schemes:
+- http
+- https
+securityDefinitions:
+  CookieAuth:
+    in: cookie
+    name: __Host-sid
+    type: apiKey
+swagger: "2.0"

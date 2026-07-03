@@ -21,6 +21,14 @@ func NewWorkerHandler(db *database.DB, pool *worker.Pool) *WorkerHandler {
 	return &WorkerHandler{db: db, pool: pool}
 }
 
+// List godoc
+// @Summary      List workers
+// @Description  Get list of all registered workers
+// @Tags         workers
+// @Produce      json
+// @Success      200  {array}   worker.Worker
+// @Security     CookieAuth
+// @Router       /api/v1/workers [get]
 // List returns a list of workers
 func (h *WorkerHandler) List(w http.ResponseWriter, r *http.Request) {
 	workers := h.pool.GetAll()
@@ -29,6 +37,17 @@ func (h *WorkerHandler) List(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(workers)
 }
 
+// GetByID godoc
+// @Summary      Get worker by ID
+// @Description  Returns a single worker
+// @Tags         workers
+// @Produce      json
+// @Param        id   path  int  true  "Worker ID"
+// @Success      200  {object}  worker.Worker
+// @Failure      400  {object}  string
+// @Failure      404  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/workers/{id} [get]
 // GetByID returns a worker by ID
 func (h *WorkerHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -48,6 +67,17 @@ func (h *WorkerHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(worker)
 }
 
+// Register godoc
+// @Summary      Register a worker
+// @Description  Register a new worker with the orchestrator
+// @Tags         workers
+// @Accept       json
+// @Produce      json
+// @Param        body  body  worker.RegisterRequest  true  "Worker details"
+// @Success      201  {object}  worker.RegisterResponse
+// @Failure      400  {object}  string
+// @Failure      500  {object}  string
+// @Router       /api/workers/register [post]
 // Register registers a new worker
 func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req worker.RegisterRequest
@@ -67,13 +97,19 @@ func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	wrk := worker.NewWorker(req.Name, req.Address, req.Capacity, req.Capabilities)
 
+	capabilitiesJSON, err := json.Marshal(req.Capabilities)
+	if err != nil {
+		http.Error(w, "Failed to serialize capabilities", http.StatusInternalServerError)
+		return
+	}
+
 	created, err := h.db.Q().CreateWorker(r.Context(), sqlc.CreateWorkerParams{
 		Name:         wrk.Name,
 		Address:      wrk.Address,
 		State:        string(wrk.State),
 		Capacity:     int64(wrk.Capacity),
 		CurrentLoad:  int64(wrk.CurrentLoad),
-		Capabilities: "{}",
+		Capabilities: string(capabilitiesJSON),
 	})
 	if err != nil {
 		http.Error(w, "Failed to register worker", http.StatusInternalServerError)
@@ -94,6 +130,17 @@ func (h *WorkerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// Heartbeat godoc
+// @Summary      Worker heartbeat
+// @Description  Update worker load and last seen timestamp
+// @Tags         workers
+// @Accept       json
+// @Produce      json
+// @Param        body  body  worker.HeartbeatRequest  true  "Heartbeat data"
+// @Success      200  {object}  worker.HeartbeatResponse
+// @Failure      400  {object}  string
+// @Failure      500  {object}  string
+// @Router       /api/workers/heartbeat [post]
 // Heartbeat handles worker heartbeat
 func (h *WorkerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	var req worker.HeartbeatRequest
@@ -122,6 +169,17 @@ func (h *WorkerHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// Deregister godoc
+// @Summary      Deregister a worker
+// @Description  Mark a worker as offline
+// @Tags         workers
+// @Accept       json
+// @Produce      json
+// @Param        body  body  worker.DeregisterRequest  true  "Deregister details"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Failure      500  {object}  string
+// @Router       /api/workers/deregister [post]
 // Deregister deregisters a worker
 func (h *WorkerHandler) Deregister(w http.ResponseWriter, r *http.Request) {
 	var req worker.DeregisterRequest

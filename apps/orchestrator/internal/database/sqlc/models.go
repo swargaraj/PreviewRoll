@@ -28,15 +28,6 @@ type Deployment struct {
 	CompletedAt  sql.NullTime   `db:"completed_at" json:"completed_at"`
 }
 
-type DeploymentLog struct {
-	ID           int64        `db:"id" json:"id"`
-	DeploymentID int64        `db:"deployment_id" json:"deployment_id"`
-	Level        string       `db:"level" json:"level"`
-	Message      string       `db:"message" json:"message"`
-	Source       string       `db:"source" json:"source"`
-	Timestamp    sql.NullTime `db:"timestamp" json:"timestamp"`
-}
-
 type Domain struct {
 	ID        int64        `db:"id" json:"id"`
 	UserID    int64        `db:"user_id" json:"user_id"`
@@ -49,8 +40,8 @@ type Project struct {
 	ID            int64        `db:"id" json:"id"`
 	UserID        int64        `db:"user_id" json:"user_id"`
 	Name          string       `db:"name" json:"name"`
-	GithubRepo    string       `db:"github_repo" json:"github_repo"`
-	GithubRepoID  int64        `db:"github_repo_id" json:"github_repo_id"`
+	RepoUrl       string       `db:"repo_url" json:"repo_url"`
+	VcsProvider   string       `db:"vcs_provider" json:"vcs_provider"`
 	WebhookSecret string       `db:"webhook_secret" json:"webhook_secret"`
 	CreatedAt     sql.NullTime `db:"created_at" json:"created_at"`
 	UpdatedAt     sql.NullTime `db:"updated_at" json:"updated_at"`

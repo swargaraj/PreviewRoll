@@ -46,6 +46,34 @@ func (q *Queries) CompleteDeployment(ctx context.Context, arg CompleteDeployment
 	return err
 }
 
+const countProjectsByUserID = `-- name: CountProjectsByUserID :one
+SELECT COUNT(*) FROM projects WHERE user_id = ?
+`
+
+func (q *Queries) CountProjectsByUserID(ctx context.Context, userID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProjectsByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countProjectsByUserIDSearch = `-- name: CountProjectsByUserIDSearch :one
+SELECT COUNT(*) FROM projects WHERE user_id = ? AND (name LIKE '%' || ? || '%' OR repo_url LIKE '%' || ? || '%')
+`
+
+type CountProjectsByUserIDSearchParams struct {
+	UserID  int64          `db:"user_id" json:"user_id"`
+	Column2 sql.NullString `db:"column_2" json:"column_2"`
+	Column3 sql.NullString `db:"column_3" json:"column_3"`
+}
+
+func (q *Queries) CountProjectsByUserIDSearch(ctx context.Context, arg CountProjectsByUserIDSearchParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProjectsByUserIDSearch, arg.UserID, arg.Column2, arg.Column3)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT COUNT(*) FROM users
 `
@@ -129,27 +157,6 @@ func (q *Queries) CreateDeploymentFromWebhook(ctx context.Context, arg CreateDep
 	return id, err
 }
 
-const createDeploymentLog = `-- name: CreateDeploymentLog :exec
-INSERT INTO deployment_logs (deployment_id, level, message, source) VALUES (?, ?, ?, ?)
-`
-
-type CreateDeploymentLogParams struct {
-	DeploymentID int64  `db:"deployment_id" json:"deployment_id"`
-	Level        string `db:"level" json:"level"`
-	Message      string `db:"message" json:"message"`
-	Source       string `db:"source" json:"source"`
-}
-
-func (q *Queries) CreateDeploymentLog(ctx context.Context, arg CreateDeploymentLogParams) error {
-	_, err := q.db.ExecContext(ctx, createDeploymentLog,
-		arg.DeploymentID,
-		arg.Level,
-		arg.Message,
-		arg.Source,
-	)
-	return err
-}
-
 const createDomain = `-- name: CreateDomain :one
 INSERT INTO domains (user_id, name) VALUES (?, ?) RETURNING id
 `
@@ -167,35 +174,35 @@ func (q *Queries) CreateDomain(ctx context.Context, arg CreateDomainParams) (int
 }
 
 const createProject = `-- name: CreateProject :one
-INSERT INTO projects (user_id, name, github_repo, github_repo_id, webhook_secret)
+INSERT INTO projects (user_id, name, repo_url, vcs_provider, webhook_secret)
 VALUES (?, ?, ?, ?, ?)
-RETURNING id, user_id, name, github_repo, github_repo_id, created_at, updated_at
+RETURNING id, user_id, name, repo_url, vcs_provider, created_at, updated_at
 `
 
 type CreateProjectParams struct {
 	UserID        int64  `db:"user_id" json:"user_id"`
 	Name          string `db:"name" json:"name"`
-	GithubRepo    string `db:"github_repo" json:"github_repo"`
-	GithubRepoID  int64  `db:"github_repo_id" json:"github_repo_id"`
+	RepoUrl       string `db:"repo_url" json:"repo_url"`
+	VcsProvider   string `db:"vcs_provider" json:"vcs_provider"`
 	WebhookSecret string `db:"webhook_secret" json:"webhook_secret"`
 }
 
 type CreateProjectRow struct {
-	ID           int64        `db:"id" json:"id"`
-	UserID       int64        `db:"user_id" json:"user_id"`
-	Name         string       `db:"name" json:"name"`
-	GithubRepo   string       `db:"github_repo" json:"github_repo"`
-	GithubRepoID int64        `db:"github_repo_id" json:"github_repo_id"`
-	CreatedAt    sql.NullTime `db:"created_at" json:"created_at"`
-	UpdatedAt    sql.NullTime `db:"updated_at" json:"updated_at"`
+	ID          int64        `db:"id" json:"id"`
+	UserID      int64        `db:"user_id" json:"user_id"`
+	Name        string       `db:"name" json:"name"`
+	RepoUrl     string       `db:"repo_url" json:"repo_url"`
+	VcsProvider string       `db:"vcs_provider" json:"vcs_provider"`
+	CreatedAt   sql.NullTime `db:"created_at" json:"created_at"`
+	UpdatedAt   sql.NullTime `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error) {
 	row := q.db.QueryRowContext(ctx, createProject,
 		arg.UserID,
 		arg.Name,
-		arg.GithubRepo,
-		arg.GithubRepoID,
+		arg.RepoUrl,
+		arg.VcsProvider,
 		arg.WebhookSecret,
 	)
 	var i CreateProjectRow
@@ -203,8 +210,8 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 		&i.ID,
 		&i.UserID,
 		&i.Name,
-		&i.GithubRepo,
-		&i.GithubRepoID,
+		&i.RepoUrl,
+		&i.VcsProvider,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -337,15 +344,6 @@ func (q *Queries) DeleteDeployment(ctx context.Context, id int64) error {
 	return err
 }
 
-const deleteDeploymentLogs = `-- name: DeleteDeploymentLogs :exec
-DELETE FROM deployment_logs WHERE deployment_id = ?
-`
-
-func (q *Queries) DeleteDeploymentLogs(ctx context.Context, deploymentID int64) error {
-	_, err := q.db.ExecContext(ctx, deleteDeploymentLogs, deploymentID)
-	return err
-}
-
 const deleteDomainByIDAndUser = `-- name: DeleteDomainByIDAndUser :exec
 DELETE FROM domains WHERE id = ? AND user_id = ?
 `
@@ -366,15 +364,6 @@ DELETE FROM sessions WHERE expires_at <= datetime('now')
 
 func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, deleteExpiredSessions)
-	return err
-}
-
-const deleteOldDeploymentLogs = `-- name: DeleteOldDeploymentLogs :exec
-DELETE FROM deployment_logs WHERE timestamp < datetime('now', ? || ' days')
-`
-
-func (q *Queries) DeleteOldDeploymentLogs(ctx context.Context, dollar_1 sql.NullString) error {
-	_, err := q.db.ExecContext(ctx, deleteOldDeploymentLogs, dollar_1)
 	return err
 }
 
@@ -493,79 +482,6 @@ func (q *Queries) GetDeploymentForUpdate(ctx context.Context, arg GetDeploymentF
 	return i, err
 }
 
-const getDeploymentLogs = `-- name: GetDeploymentLogs :many
-SELECT id, deployment_id, level, message, source, timestamp FROM deployment_logs WHERE deployment_id = ? ORDER BY timestamp ASC
-`
-
-func (q *Queries) GetDeploymentLogs(ctx context.Context, deploymentID int64) ([]DeploymentLog, error) {
-	rows, err := q.db.QueryContext(ctx, getDeploymentLogs, deploymentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []DeploymentLog{}
-	for rows.Next() {
-		var i DeploymentLog
-		if err := rows.Scan(
-			&i.ID,
-			&i.DeploymentID,
-			&i.Level,
-			&i.Message,
-			&i.Source,
-			&i.Timestamp,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getDeploymentLogsByLevel = `-- name: GetDeploymentLogsByLevel :many
-SELECT id, deployment_id, level, message, source, timestamp FROM deployment_logs WHERE deployment_id = ? AND level = ? ORDER BY timestamp ASC
-`
-
-type GetDeploymentLogsByLevelParams struct {
-	DeploymentID int64  `db:"deployment_id" json:"deployment_id"`
-	Level        string `db:"level" json:"level"`
-}
-
-func (q *Queries) GetDeploymentLogsByLevel(ctx context.Context, arg GetDeploymentLogsByLevelParams) ([]DeploymentLog, error) {
-	rows, err := q.db.QueryContext(ctx, getDeploymentLogsByLevel, arg.DeploymentID, arg.Level)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []DeploymentLog{}
-	for rows.Next() {
-		var i DeploymentLog
-		if err := rows.Scan(
-			&i.ID,
-			&i.DeploymentID,
-			&i.Level,
-			&i.Message,
-			&i.Source,
-			&i.Timestamp,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getDomainByID = `-- name: GetDomainByID :one
 SELECT user_id FROM domains WHERE id = ?
 `
@@ -577,19 +493,8 @@ func (q *Queries) GetDomainByID(ctx context.Context, id int64) (int64, error) {
 	return user_id, err
 }
 
-const getProjectByGithubRepo = `-- name: GetProjectByGithubRepo :one
-SELECT id FROM projects WHERE github_repo = ?
-`
-
-func (q *Queries) GetProjectByGithubRepo(ctx context.Context, githubRepo string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getProjectByGithubRepo, githubRepo)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
-}
-
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, user_id, name, github_repo, github_repo_id, webhook_secret, created_at, updated_at FROM projects WHERE id = ?
+SELECT id, user_id, name, repo_url, vcs_provider, webhook_secret, created_at, updated_at FROM projects WHERE id = ?
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id int64) (Project, error) {
@@ -599,13 +504,24 @@ func (q *Queries) GetProjectByID(ctx context.Context, id int64) (Project, error)
 		&i.ID,
 		&i.UserID,
 		&i.Name,
-		&i.GithubRepo,
-		&i.GithubRepoID,
+		&i.RepoUrl,
+		&i.VcsProvider,
 		&i.WebhookSecret,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getProjectByRepoURL = `-- name: GetProjectByRepoURL :one
+SELECT id FROM projects WHERE repo_url = ?
+`
+
+func (q *Queries) GetProjectByRepoURL(ctx context.Context, repoUrl string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getProjectByRepoURL, repoUrl)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getProjectDomainByProjectID = `-- name: GetProjectDomainByProjectID :one
@@ -1049,7 +965,7 @@ func (q *Queries) ListProjectDomains(ctx context.Context, projectID int64) ([]Li
 }
 
 const listProjectsByUserID = `-- name: ListProjectsByUserID :many
-SELECT id, user_id, name, github_repo, github_repo_id, webhook_secret, created_at, updated_at FROM projects WHERE user_id = ? ORDER BY created_at DESC
+SELECT id, user_id, name, repo_url, vcs_provider, webhook_secret, created_at, updated_at FROM projects WHERE user_id = ? ORDER BY created_at DESC
 `
 
 func (q *Queries) ListProjectsByUserID(ctx context.Context, userID int64) ([]Project, error) {
@@ -1065,8 +981,100 @@ func (q *Queries) ListProjectsByUserID(ctx context.Context, userID int64) ([]Pro
 			&i.ID,
 			&i.UserID,
 			&i.Name,
-			&i.GithubRepo,
-			&i.GithubRepoID,
+			&i.RepoUrl,
+			&i.VcsProvider,
+			&i.WebhookSecret,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProjectsByUserIDPaginated = `-- name: ListProjectsByUserIDPaginated :many
+SELECT id, user_id, name, repo_url, vcs_provider, webhook_secret, created_at, updated_at FROM projects WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?
+`
+
+type ListProjectsByUserIDPaginatedParams struct {
+	UserID int64 `db:"user_id" json:"user_id"`
+	Limit  int64 `db:"limit" json:"limit"`
+	Offset int64 `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListProjectsByUserIDPaginated(ctx context.Context, arg ListProjectsByUserIDPaginatedParams) ([]Project, error) {
+	rows, err := q.db.QueryContext(ctx, listProjectsByUserIDPaginated, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Project{}
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.RepoUrl,
+			&i.VcsProvider,
+			&i.WebhookSecret,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProjectsByUserIDPaginatedSearch = `-- name: ListProjectsByUserIDPaginatedSearch :many
+SELECT id, user_id, name, repo_url, vcs_provider, webhook_secret, created_at, updated_at FROM projects WHERE user_id = ? AND (name LIKE '%' || ? || '%' OR repo_url LIKE '%' || ? || '%') ORDER BY created_at DESC LIMIT ? OFFSET ?
+`
+
+type ListProjectsByUserIDPaginatedSearchParams struct {
+	UserID  int64          `db:"user_id" json:"user_id"`
+	Column2 sql.NullString `db:"column_2" json:"column_2"`
+	Column3 sql.NullString `db:"column_3" json:"column_3"`
+	Limit   int64          `db:"limit" json:"limit"`
+	Offset  int64          `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListProjectsByUserIDPaginatedSearch(ctx context.Context, arg ListProjectsByUserIDPaginatedSearchParams) ([]Project, error) {
+	rows, err := q.db.QueryContext(ctx, listProjectsByUserIDPaginatedSearch,
+		arg.UserID,
+		arg.Column2,
+		arg.Column3,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Project{}
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.RepoUrl,
+			&i.VcsProvider,
 			&i.WebhookSecret,
 			&i.CreatedAt,
 			&i.UpdatedAt,

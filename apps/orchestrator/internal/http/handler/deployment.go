@@ -19,6 +19,19 @@ func NewDeploymentHandler(db *database.DB) *DeploymentHandler {
 	return &DeploymentHandler{db: db}
 }
 
+// List godoc
+// @Summary      List deployments
+// @Description  Get list of deployments with optional filters
+// @Tags         deployments
+// @Produce      json
+// @Param        project_id  query  string  false  "Filter by project ID"
+// @Param        state       query  string  false  "Filter by state"
+// @Param        limit       query  string  false  "Limit results"
+// @Param        offset      query  string  false  "Offset results"
+// @Success      200  {array}   deployment.Deployment
+// @Failure      500  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/deployments [get]
 // List returns a list of deployments
 func (h *DeploymentHandler) List(w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get("project_id")
@@ -88,6 +101,17 @@ func (h *DeploymentHandler) List(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(deployments)
 }
 
+// GetByID godoc
+// @Summary      Get deployment by ID
+// @Description  Returns a single deployment
+// @Tags         deployments
+// @Produce      json
+// @Param        id   path  int  true  "Deployment ID"
+// @Success      200  {object}  deployment.Deployment
+// @Failure      400  {object}  string
+// @Failure      404  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/deployments/{id} [get]
 // GetByID returns a deployment by ID
 func (h *DeploymentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -107,6 +131,17 @@ func (h *DeploymentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(d)
 }
 
+// Stop godoc
+// @Summary      Stop a deployment
+// @Description  Stop a running deployment
+// @Tags         deployments
+// @Produce      json
+// @Param        id   path  int  true  "Deployment ID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Failure      500  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/deployments/{id}/stop [post]
 // Stop stops a deployment
 func (h *DeploymentHandler) Stop(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -128,6 +163,17 @@ func (h *DeploymentHandler) Stop(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Restart godoc
+// @Summary      Restart a deployment
+// @Description  Restart a stopped or failed deployment
+// @Tags         deployments
+// @Produce      json
+// @Param        id   path  int  true  "Deployment ID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Failure      500  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/deployments/{id}/restart [post]
 // Restart restarts a deployment
 func (h *DeploymentHandler) Restart(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -149,6 +195,16 @@ func (h *DeploymentHandler) Restart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Logs godoc
+// @Summary      Get deployment logs
+// @Description  Returns logs for a deployment (not yet implemented)
+// @Tags         deployments
+// @Produce      json
+// @Param        id   path  int  true  "Deployment ID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Security     CookieAuth
+// @Router       /api/v1/deployments/{id}/logs [get]
 // Logs returns the logs for a deployment
 func (h *DeploymentHandler) Logs(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")

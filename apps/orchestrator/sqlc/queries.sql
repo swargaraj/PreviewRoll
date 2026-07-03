@@ -40,9 +40,9 @@ DELETE FROM sessions WHERE token = ?;
 DELETE FROM sessions WHERE expires_at <= datetime('now');
 
 -- name: CreateProject :one
-INSERT INTO projects (user_id, name, github_repo, github_repo_id, webhook_secret)
+INSERT INTO projects (user_id, name, repo_url, vcs_provider, webhook_secret)
 VALUES (?, ?, ?, ?, ?)
-RETURNING id, user_id, name, github_repo, github_repo_id, created_at, updated_at;
+RETURNING id, user_id, name, repo_url, vcs_provider, created_at, updated_at;
 
 -- name: GetProjectByID :one
 SELECT * FROM projects WHERE id = ?;
@@ -50,11 +50,23 @@ SELECT * FROM projects WHERE id = ?;
 -- name: GetProjectOwnerByID :one
 SELECT user_id FROM projects WHERE id = ?;
 
--- name: GetProjectByGithubRepo :one
-SELECT id FROM projects WHERE github_repo = ?;
+-- name: GetProjectByRepoURL :one
+SELECT id FROM projects WHERE repo_url = ?;
 
 -- name: ListProjectsByUserID :many
 SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC;
+
+-- name: CountProjectsByUserID :one
+SELECT COUNT(*) FROM projects WHERE user_id = ?;
+
+-- name: ListProjectsByUserIDPaginated :many
+SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?;
+
+-- name: CountProjectsByUserIDSearch :one
+SELECT COUNT(*) FROM projects WHERE user_id = ? AND (name LIKE '%' || ? || '%' OR repo_url LIKE '%' || ? || '%');
+
+-- name: ListProjectsByUserIDPaginatedSearch :many
+SELECT * FROM projects WHERE user_id = ? AND (name LIKE '%' || ? || '%' OR repo_url LIKE '%' || ? || '%') ORDER BY created_at DESC LIMIT ? OFFSET ?;
 
 -- name: UpdateProject :exec
 UPDATE projects SET name = ?, updated_at = datetime('now') WHERE id = ?;
@@ -134,21 +146,6 @@ UPDATE workers SET state = 'offline', updated_at = datetime('now');
 
 -- name: DeleteWorker :exec
 DELETE FROM workers WHERE id = ?;
-
--- name: CreateDeploymentLog :exec
-INSERT INTO deployment_logs (deployment_id, level, message, source) VALUES (?, ?, ?, ?);
-
--- name: GetDeploymentLogs :many
-SELECT * FROM deployment_logs WHERE deployment_id = ? ORDER BY timestamp ASC;
-
--- name: GetDeploymentLogsByLevel :many
-SELECT * FROM deployment_logs WHERE deployment_id = ? AND level = ? ORDER BY timestamp ASC;
-
--- name: DeleteDeploymentLogs :exec
-DELETE FROM deployment_logs WHERE deployment_id = ?;
-
--- name: DeleteOldDeploymentLogs :exec
-DELETE FROM deployment_logs WHERE timestamp < datetime('now', ? || ' days');
 
 -- name: CreateDomain :one
 INSERT INTO domains (user_id, name) VALUES (?, ?) RETURNING id;

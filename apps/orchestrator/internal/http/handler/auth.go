@@ -2,19 +2,15 @@ package handler
 
 import (
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
-
-	"golang.org/x/crypto/argon2"
 
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/config"
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database"
 	"github.com/swargaraj/previewroll/apps/orchestrator/internal/database/sqlc"
+	"github.com/swargaraj/previewroll/apps/orchestrator/internal/password"
 )
 
 // AuthHandler handles authentication requests
@@ -47,6 +43,18 @@ type UserResponse struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// Register godoc
+// @Summary      Register a new user
+// @Description  Create a new user account
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  RegisterRequest  true  "Registration credentials"
+// @Success      201  {object}  UserResponse
+// @Failure      400  {object}  string
+// @Failure      409  {object}  string
+// @Failure      500  {object}  string
+// @Router       /api/auth/register [post]
 // Register handles user registration
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
@@ -65,7 +73,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := hashPassword(req.Password)
+	hash, err := password.Hash(req.Password)
 	if err != nil {
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
@@ -91,6 +99,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// Login godoc
+// @Summary      Login
+// @Description  Authenticate user and create session
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  LoginRequest  true  "Login credentials"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Failure      401  {object}  string
+// @Failure      500  {object}  string
+// @Router       /api/auth/login [post]
 // Login handles user login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
@@ -110,7 +130,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !verifyPassword(req.Password, creds.PasswordHash) {
+	if !password.Verify(req.Password, creds.PasswordHash) {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -156,6 +176,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Logout godoc
+// @Summary      Logout
+// @Description  End the current session
+// @Tags         auth
+// @Produce      json
+// @Security     CookieAuth
+// @Success      200  {object}  map[string]string
+// @Failure      401  {object}  string
+// @Failure      500  {object}  string
+// @Router       /api/auth/logout [post]
 // Logout handles user logout
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("__Host-sid")
@@ -186,6 +216,15 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Me godoc
+// @Summary      Get current user
+// @Description  Returns the authenticated user's profile
+// @Tags         auth
+// @Produce      json
+// @Security     CookieAuth
+// @Success      200  {object}  UserResponse
+// @Failure      401  {object}  string
+// @Router       /api/auth/me [get]
 // Me returns the current user
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("__Host-sid")
@@ -208,66 +247,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
-}
-
-// hashPassword hashes a password using Argon2id
-func hashPassword(password string) (string, error) {
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return "", err
-	}
-
-	hash := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
-
-	return encodeArgon2Hash(hash, salt), nil
-}
-
-// verifyPassword verifies a password against a hash
-func verifyPassword(password, encodedHash string) bool {
-	hash, salt, err := decodeArgon2Hash(encodedHash)
-	if err != nil {
-		return false
-	}
-
-	testHash := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
-
-	return subtle.ConstantTimeCompare(hash, testHash) == 1
-}
-
-// encodeArgon2Hash encodes an Argon2 hash as a PHC string
-func encodeArgon2Hash(hash, salt []byte) string {
-	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version,
-		64*1024,
-		3,
-		4,
-		base64.RawStdEncoding.EncodeToString(salt),
-		base64.RawStdEncoding.EncodeToString(hash),
-	)
-}
-
-// decodeArgon2Hash decodes a PHC string into hash and salt
-func decodeArgon2Hash(encoded string) (hash, salt []byte, err error) {
-	parts := strings.Split(encoded, "$")
-	if len(parts) != 6 {
-		return nil, nil, fmt.Errorf("invalid hash format")
-	}
-
-	if parts[1] != "argon2id" {
-		return nil, nil, fmt.Errorf("unsupported hash algorithm")
-	}
-
-	salt, err = base64.RawStdEncoding.DecodeString(parts[4])
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode salt: %w", err)
-	}
-
-	hash, err = base64.RawStdEncoding.DecodeString(parts[5])
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode hash: %w", err)
-	}
-
-	return hash, salt, nil
 }
 
 // generateToken generates a random token

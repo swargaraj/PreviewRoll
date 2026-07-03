@@ -47,6 +47,19 @@ type WebhookPayload struct {
 	} `json:"repository"`
 }
 
+// HandleGitHubWebhook godoc
+// @Summary      GitHub webhook
+// @Description  Handle incoming GitHub webhook events (push, pull_request, ping)
+// @Tags         webhooks
+// @Accept       json
+// @Produce      json
+// @Param        X-Hub-Signature-256  header  string  true  "HMAC-SHA256 signature"
+// @Param        X-GitHub-Event       header  string  true  "Event type"
+// @Param        body                 body    WebhookPayload  true  "GitHub webhook payload"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  string
+// @Failure      401  {object}  string
+// @Router       /webhook/github [post]
 // HandleGitHubWebhook handles GitHub webhook requests
 func (h *WebhookHandler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
@@ -117,7 +130,7 @@ func (h *WebhookHandler) handlePullRequest(w http.ResponseWriter, payload Webhoo
 func (h *WebhookHandler) createDeployment(payload WebhookPayload) {
 	ctx := context.Background()
 
-	projectID, err := h.db.Q().GetProjectByGithubRepo(ctx, payload.Repository.FullName)
+	projectID, err := h.db.Q().GetProjectByRepoURL(ctx, "https://github.com/"+payload.Repository.FullName)
 	if err != nil {
 		slog.Error("project not found", "repo", payload.Repository.FullName)
 		return
@@ -181,7 +194,7 @@ func (h *WebhookHandler) resolvePreviewURL(projectID int64, commitSHA string) st
 func (h *WebhookHandler) stopDeployment(payload WebhookPayload) {
 	ctx := context.Background()
 
-	projectID, err := h.db.Q().GetProjectByGithubRepo(ctx, payload.Repository.FullName)
+	projectID, err := h.db.Q().GetProjectByRepoURL(ctx, "https://github.com/"+payload.Repository.FullName)
 	if err != nil {
 		slog.Error("project not found", "repo", payload.Repository.FullName)
 		return
