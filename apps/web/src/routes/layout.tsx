@@ -3,7 +3,12 @@ import { Outlet, useNavigate } from "react-router";
 
 import type { Route } from "./+types/layout";
 import { useAuth } from "@/context/auth-context";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@previewroll/ui/components/sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@previewroll/ui/components/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 
 export function meta({}: Route.MetaArgs) {
@@ -30,17 +35,17 @@ export default function DashboardLayout() {
     );
   }
 
+  const { isMobile, open } = useSidebar();
+
   return (
-    <SidebarProvider>
+    <>
       <AppSidebar />
       <SidebarInset>
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          <div className="flex items-center gap-2 pt-4">
-            <SidebarTrigger />
-          </div>
+        <div className="flex flex-1 flex-col gap-4 px-6 pt-6">
+          {isMobile || (!open && <SidebarTrigger />)}
           <Outlet />
         </div>
       </SidebarInset>
-    </SidebarProvider>
+    </>
   );
 }

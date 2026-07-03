@@ -1,4 +1,3 @@
-import { Toaster } from "@previewroll/ui/components/sonner";
 import {
   isRouteErrorResponse,
   Links,
@@ -7,12 +6,16 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
+import type { Route } from "./+types/root";
 
 import "./index.css";
-import type { Route } from "./+types/root";
+
 import { ThemeProvider } from "./components/theme-provider";
 import { ConnectionProvider } from "./context/connection-context";
 import { AuthProvider } from "./context/auth-context";
+import { QueryProvider } from "./components/query-provider";
+import { SidebarProvider } from "@previewroll/ui/components/sidebar";
+import { ToastProvider } from "@previewroll/ui/components/toast";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -42,8 +45,13 @@ export default function App() {
     >
       <ConnectionProvider>
         <AuthProvider>
-          <Outlet />
-          <Toaster richColors />
+          <QueryProvider>
+            <SidebarProvider>
+              <ToastProvider>
+                <Outlet />
+              </ToastProvider>
+            </SidebarProvider>
+          </QueryProvider>
         </AuthProvider>
       </ConnectionProvider>
     </ThemeProvider>

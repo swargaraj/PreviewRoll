@@ -30,7 +30,7 @@ export async function listProjects(
   connection: SavedConnection,
   page: number = 1,
   pageSize: number = 10,
-  search?: string
+  search?: string,
 ): Promise<ApiResponse<PaginatedProjects>> {
   const params = new URLSearchParams({
     page: String(page),
@@ -46,7 +46,7 @@ export async function listProjects(
 
 export async function createProject(
   connection: SavedConnection,
-  params: CreateProjectParams
+  params: CreateProjectParams,
 ): Promise<ApiResponse<{ id: number }>> {
   return apiRequest<{ id: number }>(connection, {
     method: "POST",
@@ -55,10 +55,7 @@ export async function createProject(
   });
 }
 
-export async function deleteProject(
-  connection: SavedConnection,
-  id: number
-): Promise<ApiResponse> {
+export async function deleteProject(connection: SavedConnection, id: number): Promise<ApiResponse> {
   return apiRequest(connection, {
     method: "DELETE",
     path: `/api/v1/projects/${id}`,

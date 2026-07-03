@@ -14,7 +14,7 @@ export interface User {
 
 export async function login(
   connection: SavedConnection,
-  credentials: LoginCredentials
+  credentials: LoginCredentials,
 ): Promise<ApiResponse> {
   return apiRequest(connection, {
     method: "POST",

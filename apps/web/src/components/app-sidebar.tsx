@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import {
   LayoutGrid,
   Box,
@@ -21,6 +21,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from "@previewroll/ui/components/sidebar";
 
 import { useConnection } from "@/context/connection-context";
@@ -28,9 +29,8 @@ import { useAuth } from "@/context/auth-context";
 import { logout } from "@/services/auth";
 
 const mainNav = [
-  { label: "Overview", to: "/", icon: LayoutGrid },
-  { label: "Projects", to: "/projects", icon: Box },
-  { label: "Deployments", to: "/deployments", icon: Rocket },
+  { label: "Projects", to: "/", icon: LayoutGrid },
+  { label: "Deployments", to: "/deployments", icon: Box },
   { label: "Previews", to: "/previews", icon: Waypoints },
   { label: "Workers", to: "/workers", icon: HardDrive },
   { label: "Logs", to: "/logs", icon: Logs },
@@ -55,10 +55,11 @@ export function AppSidebar() {
 
   return (
     <Sidebar className="border-none">
-      <SidebarHeader className="pt-6 px-6">
+      <SidebarHeader className="pt-6 px-6 flex-row items-center justify-between">
         <Link to="/">
-            <img src="/full-logo.png" alt="PreviewRoll" className="w-30 h-auto" />
+          <img src="/full-logo.png" alt="PreviewRoll" className="w-30 h-auto" />
         </Link>
+        <SidebarTrigger />
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarGroup>
@@ -100,7 +101,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout}>
+                <SidebarMenuButton onClick={handleLogout} className="hover:bg-destructive/10 hover:text-destructive">
                   <LogOut className="size-4" />
                   Logout
                 </SidebarMenuButton>

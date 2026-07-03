@@ -17,7 +17,7 @@ export interface ApiResponse<T = unknown> {
 
 export async function apiRequest<T = unknown>(
   connection: SavedConnection,
-  options: ApiRequestOptions
+  options: ApiRequestOptions,
 ): Promise<ApiResponse<T>> {
   const { method = "GET", path, body, headers = {} } = options;
 

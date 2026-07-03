@@ -1,15 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@previewroll/ui/components/button";
-import {
-  Card,
-  CardFrame,
-  CardPanel,
-} from "@previewroll/ui/components/card";
+import { Card, CardFrame, CardPanel } from "@previewroll/ui/components/card";
 import { Field, FieldControl, FieldError, FieldLabel } from "@previewroll/ui/components/field";
 import { Form } from "@previewroll/ui/components/form";
 import { Input } from "@previewroll/ui/components/input";
-import {Alert, AlertTitle} from "@previewroll/ui/components/alert";
+import { Alert, AlertTitle } from "@previewroll/ui/components/alert";
 
 import type { Route } from "./+types/login";
 import { useConnection } from "@/context/connection-context";
@@ -80,16 +76,16 @@ export default function Login() {
                 <FieldLabel htmlFor="server">Server Address</FieldLabel>
                 <FieldControl
                   render={
-                      <Input
-                        id="server"
-                        name="server"
-                        type="text"
-                        placeholder="https://localhost:8080"
-                        value={server}
-                        onChange={(e) => setServer(e.target.value)}
-                        size="lg"
-                        required
-                      />
+                    <Input
+                      id="server"
+                      name="server"
+                      type="text"
+                      placeholder="https://localhost:8080"
+                      value={server}
+                      onChange={(e) => setServer(e.target.value)}
+                      size="lg"
+                      required
+                    />
                   }
                 />
                 <FieldError />
@@ -98,16 +94,16 @@ export default function Login() {
                 <FieldLabel htmlFor="username">Username</FieldLabel>
                 <FieldControl
                   render={
-                      <Input
-                        id="username"
-                        name="username"
-                        type="text"
-                        placeholder="admin"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        size="lg"
-                        required
-                      />
+                    <Input
+                      id="username"
+                      name="username"
+                      type="text"
+                      placeholder="admin"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      size="lg"
+                      required
+                    />
                   }
                 />
                 <FieldError />
@@ -116,14 +112,14 @@ export default function Login() {
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <FieldControl
                   render={
-                      <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        placeholder="••••••••"
-                        size="lg"
-                        required
-                      />
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      placeholder="••••••••"
+                      size="lg"
+                      required
+                    />
                   }
                 />
                 <FieldError />
@@ -133,7 +129,13 @@ export default function Login() {
                   <AlertTitle>{error}</AlertTitle>
                 </Alert>
               )}
-              <Button type="submit" className="w-full" size="lg" disabled={loading} loading={loading}>
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={loading}
+                loading={loading}
+              >
                 Start Connection
               </Button>
             </Form>
